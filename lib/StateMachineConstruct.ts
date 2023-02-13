@@ -9,7 +9,6 @@ import {
   Pass,
   Map,
   Succeed,
-  TaskInput,
 } from 'aws-cdk-lib/aws-stepfunctions';
 
 import { Construct } from 'constructs';
@@ -17,10 +16,10 @@ import { Role } from 'aws-cdk-lib/aws-iam';
 import {
   DynamoAttributeValue,
   DynamoGetItem,
-  LambdaInvoke,
 } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
+import { InverseConstruct } from './operations/InverseConstruct';
+import { SubtractConstruct } from './operations/SubtractConstruct';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -33,6 +32,15 @@ export class StateMachineConstruct extends Construct {
     super(scope, id);
 
     const succeed = new Succeed(this, 'Succeed');
+
+    const subtractConstruct = new SubtractConstruct(this, 'Subtract', {
+      aJsonPath: '$[0].Item.ELO.N',
+      bJsonPath: '$[1].Item.ELO.N',
+    });
+
+    const inverseConstruct = new InverseConstruct(this, 'Inverse', {
+      aJsonPath: '$.Payload',
+    });
 
     const parsePayload = new Pass(this, 'Parse Payload', {
       parameters: {
@@ -47,26 +55,6 @@ export class StateMachineConstruct extends Construct {
         playersArray: JsonPath.array(
           JsonPath.stringAt('$.payloadEvent.PlayerA.S'),
           JsonPath.stringAt('$.payloadEvent.PlayerB.S'),
-        ),
-      },
-    });
-
-    const subtraction = new Pass(this, 'Subtract Scores', {
-      parameters: {
-        diff: JsonPath.mathAdd(
-          JsonPath.numberAt('$.firstRanking'),
-          JsonPath.numberAt('$.secondRanking'),
-        ),
-      },
-    });
-
-    const transformPayload = new Pass(this, 'Transform Payload', {
-      parameters: {
-        firstRanking: JsonPath.stringToJson(
-          JsonPath.format('-{}', JsonPath.stringAt('$[0].Item.ELO.N')),
-        ),
-        secondRanking: JsonPath.stringToJson(
-          JsonPath.stringAt('$[1].Item.ELO.N'),
         ),
       },
     });
@@ -112,9 +100,10 @@ export class StateMachineConstruct extends Construct {
           .next(
             mapGetItems
               .iterator(dynamodbGetItem)
-              .next(transformPayload)
-              .next(subtraction)
-              .next(lambdaInvokeComputeELOScore),
+              .next(subtractConstruct.formatForSubtraction)
+              .next(subtractConstruct.lambdaInvokeSubtract)
+              .next(inverseConstruct.formatForInverse)
+              .next(inverseConstruct.lambdaInvokeInverse),
           ),
       )
       .next(succeed);
