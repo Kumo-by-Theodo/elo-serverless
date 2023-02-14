@@ -13,13 +13,9 @@ import {
 
 import { Construct } from 'constructs';
 import { Role } from 'aws-cdk-lib/aws-iam';
-import {
-  DynamoAttributeValue,
-  DynamoGetItem,
-} from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { InverseConstruct } from './operations/InverseConstruct';
-import { SubtractConstruct } from './operations/SubtractConstruct';
+import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -33,15 +29,6 @@ export class StateMachineConstruct extends Construct {
 
     const succeed = new Succeed(this, 'Succeed');
 
-    const subtractConstruct = new SubtractConstruct(this, 'Subtract', {
-      aJsonPath: '$[0].Item.ELO.N',
-      bJsonPath: '$[1].Item.ELO.N',
-    });
-
-    const inverseConstruct = new InverseConstruct(this, 'Inverse', {
-      aJsonPath: '$.Payload',
-    });
-
     const parsePayload = new Pass(this, 'Parse Payload', {
       parameters: {
         payloadEvent: JsonPath.stringToJson(
@@ -50,61 +37,57 @@ export class StateMachineConstruct extends Construct {
       },
     });
 
-    const transformToArray = new Pass(this, 'Transform To Array', {
-      parameters: {
-        playersArray: JsonPath.array(
-          JsonPath.stringAt('$.payloadEvent.PlayerA.S'),
-          JsonPath.stringAt('$.payloadEvent.PlayerB.S'),
-        ),
-      },
-    });
-
-    const dynamodbGetItem = new DynamoGetItem(this, 'Dynamo Get Item', {
-      key: {
-        PK: DynamoAttributeValue.fromString(JsonPath.stringAt('$')),
-      },
-      table: props.table,
-    });
-
-    const computeELOScore = new Function(this, 'Compute ELO Score', {
-      handler: 'index.handler',
-      code: Code.fromInline(`
-              exports.handler = ({diff}, _, callback) => {
-                callback(null, 1 / (1+10**(diff/400)));
-              };
-            `),
-      runtime: Runtime.NODEJS_16_X,
-    });
-    const lambdaInvokeComputeELOScore = new LambdaInvoke(
+    const computeELOScoreConstruct = new ComputeEloScoreConstruct(
       this,
-      'Lambda Invoke Compute ELO Score',
-      {
-        lambdaFunction: computeELOScore,
-      },
+      'Compute ELO Score',
     );
 
-    // Inner map
-    const mapGetItems = new Map(this, 'Map Get Items', {
-      itemsPath: JsonPath.stringAt('$.playersArray'),
+    const batchGetItem = new CallAwsService(this, 'BatchGetItem', {
+      service: 'dynamodb',
+      action: 'batchGetItem',
+      iamResources: ['arn:aws:states:::aws-sdk:dynamodb:batchGetItem'],
+      parameters: {
+        RequestItems: {
+          [props.table.tableName]: {
+            Keys: [
+              {
+                PK: JsonPath.objectAt('$.payloadEvent.PlayerA'),
+              },
+              {
+                PK: JsonPath.objectAt('$.payloadEvent.PlayerB'),
+              },
+            ],
+          },
+        },
+      },
+      resultSelector: {
+        batchGetItem: JsonPath.stringAt(`$.Responses.${props.table.tableName}`),
+      },
+      resultPath: JsonPath.stringAt('$.TaskResult'),
     });
 
-    // Outer map
     const mapStreamEvents = new Map(this, 'Map Stream Events', {
       itemsPath: JsonPath.stringAt('$'),
+    });
+
+    const formatForScoreUpdate = new Pass(this, 'Format For Score Update', {
+      parameters: {
+        PlayerA: JsonPath.stringAt('$.payloadEvent.PlayerA'),
+        scorePlayerA: JsonPath.stringAt('$.FormattedInput.scorePlayerA'),
+        PlayerB: JsonPath.stringAt('$.payloadEvent.PlayerB'),
+        scorePlayerB: JsonPath.stringAt('$.FormattedInput.scorePlayerB'),
+        ProbabilityPlayerBWins: JsonPath.stringAt('$.EloScoreResult.result'),
+        winner: JsonPath.stringAt('$.payloadEvent.Result.N'),
+      },
     });
 
     mapStreamEvents
       .iterator(
         parsePayload
-          .next(transformToArray)
-          .next(
-            mapGetItems
-              .iterator(dynamodbGetItem)
-              .next(subtractConstruct.formatForSubtraction)
-              .next(subtractConstruct.lambdaInvokeSubtract)
-              .next(inverseConstruct.formatForInverse)
-              .next(inverseConstruct.lambdaInvokeInverse),
-          ),
+          .next(batchGetItem)
+          .next(computeELOScoreConstruct.formatForComputeEloScore)
+          .next(computeELOScoreConstruct.lambdaInvokeComputeEloScore)
+          .next(formatForScoreUpdate),
       )
       .next(succeed);
 
