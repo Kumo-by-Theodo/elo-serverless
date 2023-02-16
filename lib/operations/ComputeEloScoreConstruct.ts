@@ -51,7 +51,9 @@ export class ComputeEloScoreConstruct extends Construct {
       {
         lambdaFunction: computeELOScore,
         inputPath: JsonPath.stringAt('$.FormattedInput'),
-        resultSelector: { result: JsonPath.stringAt('$.Payload') },
+        resultSelector: {
+          result: JsonPath.format('{}', JsonPath.stringAt('$.Payload')),
+        },
         resultPath: '$.EloScoreResult',
       },
     );

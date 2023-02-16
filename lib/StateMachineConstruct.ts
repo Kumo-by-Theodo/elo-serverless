@@ -19,6 +19,7 @@ import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
 import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
 import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
+import { DynamoUpdatePlayerItem } from './DynamoUpdatePlayerItem';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -103,11 +104,19 @@ export class StateMachineConstruct extends Construct {
       },
     });
 
+    const dynamoUpdatePlayerAItemConstruct = new DynamoUpdatePlayerItem(
+      this,
+      'Update PlayerA Score',
+      {
+        player: 'PlayerA',
+        table: props.table,
+      },
+    );
     const branchPlayerA = new OneMinusXConstruct(this, 'One Minus Proba', {
       xJsonPath: '$.ProbabilityPlayerBWins',
     }).oneMinusX
       .next(
-        new Pass(this, 'Branch Player A', {
+        new Pass(this, 'Filter Params Branch Player A', {
           parameters: {
             player: JsonPath.stringAt('$.PlayerA'),
             score: JsonPath.stringAt('$.scorePlayerA'),
@@ -117,13 +126,22 @@ export class StateMachineConstruct extends Construct {
         }),
       )
       .next(computeEloScorePlayerAConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore);
+      .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore)
+      .next(dynamoUpdatePlayerAItemConstruct.dynamoUpdatePlayerItem);
 
+    const dynamoUpdatePlayerBItemConstruct = new DynamoUpdatePlayerItem(
+      this,
+      'Update PlayerB Score',
+      {
+        player: 'PlayerB',
+        table: props.table,
+      },
+    );
     const branchPlayerB = new OneMinusXConstruct(this, 'One Minus Winner', {
       xJsonPath: '$.winner',
     }).oneMinusX
       .next(
-        new Pass(this, 'Branch Player B', {
+        new Pass(this, 'Filter Params Branch Player B', {
           parameters: {
             player: JsonPath.stringAt('$.PlayerB'),
             score: JsonPath.stringAt('$.scorePlayerB'),
@@ -133,7 +151,8 @@ export class StateMachineConstruct extends Construct {
         }),
       )
       .next(computeEloScorePlayerBConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore);
+      .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore)
+      .next(dynamoUpdatePlayerBItemConstruct.dynamoUpdatePlayerItem);
 
     const parallel = new Parallel(this, 'Parallel');
 
