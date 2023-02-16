@@ -9,13 +9,16 @@ import {
   Pass,
   Map,
   Succeed,
+  Parallel,
 } from 'aws-cdk-lib/aws-stepfunctions';
 
 import { Construct } from 'constructs';
 import { Role } from 'aws-cdk-lib/aws-iam';
 import { CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
+import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
 import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
+import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -37,9 +40,25 @@ export class StateMachineConstruct extends Construct {
       },
     });
 
-    const computeELOScoreConstruct = new ComputeEloScoreConstruct(
+    const computeProbaConstruct = new ComputeProbaConstruct(
       this,
-      'Compute ELO Score',
+      'Compute Proba Of Victory',
+    );
+
+    const computeEloScorePlayerAConstruct = new ComputeEloScoreConstruct(
+      this,
+      'Compute Elo Score Player A',
+      {
+        player: 'Player A',
+      },
+    );
+
+    const computeEloScorePlayerBConstruct = new ComputeEloScoreConstruct(
+      this,
+      'Compute Elo Score Player B',
+      {
+        player: 'Player B',
+      },
     );
 
     const batchGetItem = new CallAwsService(this, 'BatchGetItem', {
@@ -76,18 +95,56 @@ export class StateMachineConstruct extends Construct {
         scorePlayerA: JsonPath.stringAt('$.FormattedInput.scorePlayerA'),
         PlayerB: JsonPath.stringAt('$.payloadEvent.PlayerB'),
         scorePlayerB: JsonPath.stringAt('$.FormattedInput.scorePlayerB'),
-        ProbabilityPlayerBWins: JsonPath.stringAt('$.EloScoreResult.result'),
+        ProbabilityPlayerBWins: JsonPath.format(
+          '{}',
+          JsonPath.stringAt('$.ProbaResult.result'),
+        ),
         winner: JsonPath.stringAt('$.payloadEvent.Result.N'),
       },
     });
+
+    const branchPlayerA = new OneMinusXConstruct(this, 'One Minus Proba', {
+      xJsonPath: '$.ProbabilityPlayerBWins',
+    }).oneMinusX
+      .next(
+        new Pass(this, 'Branch Player A', {
+          parameters: {
+            player: JsonPath.stringAt('$.PlayerA'),
+            score: JsonPath.stringAt('$.scorePlayerA'),
+            winner: JsonPath.stringAt('$.winner'),
+            proba: JsonPath.stringAt('$.resultOneMinusX.value'),
+          },
+        }),
+      )
+      .next(computeEloScorePlayerAConstruct.formatForComputeEloScore)
+      .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore);
+
+    const branchPlayerB = new OneMinusXConstruct(this, 'One Minus Winner', {
+      xJsonPath: '$.winner',
+    }).oneMinusX
+      .next(
+        new Pass(this, 'Branch Player B', {
+          parameters: {
+            player: JsonPath.stringAt('$.PlayerB'),
+            score: JsonPath.stringAt('$.scorePlayerB'),
+            winner: JsonPath.stringAt('$.resultOneMinusX.value'),
+            proba: JsonPath.stringAt('$.ProbabilityPlayerBWins'),
+          },
+        }),
+      )
+      .next(computeEloScorePlayerBConstruct.formatForComputeEloScore)
+      .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore);
+
+    const parallel = new Parallel(this, 'Parallel');
 
     mapStreamEvents
       .iterator(
         parsePayload
           .next(batchGetItem)
-          .next(computeELOScoreConstruct.formatForComputeEloScore)
-          .next(computeELOScoreConstruct.lambdaInvokeComputeEloScore)
-          .next(formatForScoreUpdate),
+          .next(computeProbaConstruct.formatForComputeProbaOfVictory)
+          .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
+          .next(formatForScoreUpdate)
+          .next(parallel.branch(branchPlayerA, branchPlayerB)),
       )
       .next(succeed);
 

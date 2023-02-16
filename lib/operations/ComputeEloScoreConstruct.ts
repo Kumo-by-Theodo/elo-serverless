@@ -7,34 +7,47 @@ export class ComputeEloScoreConstruct extends Construct {
   public formatForComputeEloScore: Pass;
   public lambdaInvokeComputeEloScore: LambdaInvoke;
 
-  constructor(scope: Construct, id: string) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: {
+      player: string;
+    },
+  ) {
     super(scope, id);
 
     this.formatForComputeEloScore = new Pass(
       this,
-      'Format For Compute ELO Score',
+      `Format For Compute ELO Score ${props.player}`,
       {
         parameters: {
-          scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
-          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N'),
+          score: JsonPath.stringAt('$.score'),
+          proba: JsonPath.numberAt('$.proba'),
+          winner: JsonPath.stringAt('$.winner'),
         },
         resultPath: '$.FormattedInput',
       },
     );
 
-    const computeELOScore = new Function(this, 'Compute ELO Score', {
-      handler: 'index.handler',
-      code: Code.fromInline(`
-                exports.handler = ({scorePlayerA, scorePlayerB}, _, callback) => {
-                  callback(null, 1 / (1 + 10 ** ((parseInt(scorePlayerA) - parseInt(scorePlayerB)) / 400)));
+    // hasWon = 1 if player has won, else 0
+    // K = 32 is fixed for now
+    const computeELOScore = new Function(
+      this,
+      `Compute ELO Score ${props.player}`,
+      {
+        handler: 'index.handler',
+        code: Code.fromInline(`
+                exports.handler = ({score, proba, winner}, _, callback) => {
+                  callback(null, Math.round(parseInt(score) + 32 * (parseInt(winner) - proba)));
                 };
               `),
-      runtime: Runtime.NODEJS_16_X,
-    });
+        runtime: Runtime.NODEJS_16_X,
+      },
+    );
 
     this.lambdaInvokeComputeEloScore = new LambdaInvoke(
       this,
-      'Lambda Invoke Compute Elo Score',
+      `Lambda Invoke Compute Elo Score ${props.player}`,
       {
         lambdaFunction: computeELOScore,
         inputPath: JsonPath.stringAt('$.FormattedInput'),
