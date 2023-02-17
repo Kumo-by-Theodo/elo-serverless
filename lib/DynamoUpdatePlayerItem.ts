@@ -1,10 +1,10 @@
-import { Construct } from 'constructs';
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
+import { JsonPath } from 'aws-cdk-lib/aws-stepfunctions';
 import {
   DynamoAttributeValue,
-  DynamoUpdateItem,
+  DynamoUpdateItem
 } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { JsonPath } from 'aws-cdk-lib/aws-stepfunctions';
-import { Table } from 'aws-cdk-lib/aws-dynamodb';
+import { Construct } from 'constructs';
 
 export class DynamoUpdatePlayerItem extends Construct {
   public dynamoUpdatePlayerItem: DynamoUpdateItem;
@@ -15,7 +15,7 @@ export class DynamoUpdatePlayerItem extends Construct {
     props: {
       table: Table;
       player: string;
-    },
+    }
   ) {
     super(scope, id);
 
@@ -25,15 +25,15 @@ export class DynamoUpdatePlayerItem extends Construct {
       {
         table: props.table,
         key: {
-          PK: DynamoAttributeValue.fromString(JsonPath.stringAt('$.player.S')),
+          PK: DynamoAttributeValue.fromString(JsonPath.stringAt('$.player.S'))
         },
         expressionAttributeValues: {
           ':elo': DynamoAttributeValue.numberFromString(
-            JsonPath.stringAt('$.EloScoreResult.result'),
-          ),
+            JsonPath.stringAt('$.EloScoreResult.result')
+          )
         },
-        updateExpression: 'SET ELO = :elo',
-      },
+        updateExpression: 'SET ELO = :elo'
+      }
     );
   }
 }

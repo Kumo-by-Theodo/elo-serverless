@@ -10,15 +10,15 @@ export class SubtractConstruct extends Construct {
   constructor(
     scope: Construct,
     id: string,
-    props: { aJsonPath: string; bJsonPath: string },
+    props: { aJsonPath: string; bJsonPath: string }
   ) {
     super(scope, id);
 
     this.formatForSubtraction = new Pass(this, 'Format For Subtraction', {
       parameters: {
         a: JsonPath.stringAt(props.aJsonPath),
-        b: JsonPath.stringAt(props.bJsonPath),
-      },
+        b: JsonPath.stringAt(props.bJsonPath)
+      }
     });
 
     const subtract = new Function(this, 'Subtract', {
@@ -28,15 +28,15 @@ export class SubtractConstruct extends Construct {
                   callback(null, parseInt(a)-parseInt(b));
                 };
               `),
-      runtime: Runtime.NODEJS_16_X,
+      runtime: Runtime.NODEJS_16_X
     });
 
     this.lambdaInvokeSubtract = new LambdaInvoke(
       this,
       'Lambda Invoke Subtract',
       {
-        lambdaFunction: subtract,
-      },
+        lambdaFunction: subtract
+      }
     );
   }
 }

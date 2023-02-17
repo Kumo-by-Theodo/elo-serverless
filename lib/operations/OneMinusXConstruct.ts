@@ -20,14 +20,14 @@ export class OneMinusXConstruct extends Construct {
                     callback(null, 1-parseFloat(x));
                   };
                 `),
-          runtime: Runtime.NODEJS_16_X,
+          runtime: Runtime.NODEJS_16_X
         }),
         inputPath: JsonPath.stringAt(props.xJsonPath),
         resultSelector: {
-          value: JsonPath.stringAt('$.Payload'),
+          value: JsonPath.stringAt('$.Payload')
         },
-        resultPath: JsonPath.stringAt('$.resultOneMinusX'),
-      },
+        resultPath: JsonPath.stringAt('$.resultOneMinusX')
+      }
     );
   }
 }

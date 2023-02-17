@@ -1,7 +1,7 @@
-import { Construct } from 'constructs';
-import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
+import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { JsonPath, Pass } from 'aws-cdk-lib/aws-stepfunctions';
+import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { Construct } from 'constructs';
 
 export class ComputeEloScoreConstruct extends Construct {
   public formatForComputeEloScore: Pass;
@@ -12,7 +12,7 @@ export class ComputeEloScoreConstruct extends Construct {
     id: string,
     props: {
       player: string;
-    },
+    }
   ) {
     super(scope, id);
 
@@ -23,10 +23,10 @@ export class ComputeEloScoreConstruct extends Construct {
         parameters: {
           score: JsonPath.stringAt('$.score'),
           proba: JsonPath.numberAt('$.proba'),
-          winner: JsonPath.stringAt('$.winner'),
+          winner: JsonPath.stringAt('$.winner')
         },
-        resultPath: '$.FormattedInput',
-      },
+        resultPath: '$.FormattedInput'
+      }
     );
 
     // hasWon = 1 if player has won, else 0
@@ -41,8 +41,8 @@ export class ComputeEloScoreConstruct extends Construct {
                   callback(null, Math.round(parseInt(score) + 32 * (parseInt(winner) - proba)));
                 };
               `),
-        runtime: Runtime.NODEJS_16_X,
-      },
+        runtime: Runtime.NODEJS_16_X
+      }
     );
 
     this.lambdaInvokeComputeEloScore = new LambdaInvoke(
@@ -52,10 +52,10 @@ export class ComputeEloScoreConstruct extends Construct {
         lambdaFunction: computeELOScore,
         inputPath: JsonPath.stringAt('$.FormattedInput'),
         resultSelector: {
-          result: JsonPath.format('{}', JsonPath.stringAt('$.Payload')),
+          result: JsonPath.format('{}', JsonPath.stringAt('$.Payload'))
         },
-        resultPath: '$.EloScoreResult',
-      },
+        resultPath: '$.EloScoreResult'
+      }
     );
   }
 }
