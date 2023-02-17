@@ -1,0 +1,17 @@
+name: Pull Request actions
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: pnpm/action-setup@v2
+    - name: Install dependencies
+      run:  pnpm install
+    - name: Lint codebase
+      run: pnpm run lint
