@@ -35,9 +35,7 @@ export class StateMachineConstruct extends Construct {
 
     const parsePayload = new Pass(this, 'Parse Payload', {
       parameters: {
-        payloadEvent: JsonPath.stringToJson(
-          JsonPath.stringAt('$.dynamodb.NewImage.Payload.S')
-        )
+        payloadEvent: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M')
       }
     });
 
