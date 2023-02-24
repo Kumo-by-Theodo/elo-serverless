@@ -4,7 +4,8 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "deploy-stack": "rm -rf dist/* && pnpm run build && pnpm cdk deploy --app 'node dist/test/integ.elo.js' --all --profile $DEVELOPER_ID",
+    "build": "tsc -p tsconfig.build.json",
     "watch": "tsc -w",
     "test": "jest",
     "lint": "eslint .",
