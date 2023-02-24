@@ -67,7 +67,8 @@ export class EloServerless extends Construct {
           batchSize: 1,
           deadLetterConfig: {
             arn: dlq.queueArn
-          }
+          },
+          maximumRetryAttempts: 1
         }
       },
       target: stateMachineConstruct.stateMachine.stateMachineArn
