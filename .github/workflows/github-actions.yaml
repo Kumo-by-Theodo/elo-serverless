@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        path: master
-    - uses: pnpm/action-setup@v2
-    - name: Install dependencies
-      run:  pnpm install
-    - name: Lint codebase
-      run: pnpm run lint
+      - name: Checkout
+        uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 7.17.1
+      - name: Install dependencies
+        run: pnpm install
+      - name: Lint codebase
+        run: pnpm run lint
