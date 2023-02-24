@@ -3,23 +3,23 @@ import { LogGroup } from 'aws-cdk-lib/aws-logs';
 import {
   IStateMachine,
   JsonPath,
-  StateMachine,
   LogLevel,
-  StateMachineType,
-  Pass,
   Map,
-  Succeed,
   Parallel,
+  Pass,
+  StateMachine,
+  StateMachineType,
+  Succeed
 } from 'aws-cdk-lib/aws-stepfunctions';
 
-import { Construct } from 'constructs';
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Role } from 'aws-cdk-lib/aws-iam';
 import { CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
-import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
-import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
+import { Construct } from 'constructs';
 import { DynamoUpdatePlayerItem } from './DynamoUpdatePlayerItem';
+import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
+import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
+import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -27,7 +27,7 @@ export class StateMachineConstruct extends Construct {
   constructor(
     scope: Construct,
     id: string,
-    props: { pipeRole: Role; table: Table },
+    props: { pipeRole: Role; table: Table }
   ) {
     super(scope, id);
 
@@ -36,30 +36,30 @@ export class StateMachineConstruct extends Construct {
     const parsePayload = new Pass(this, 'Parse Payload', {
       parameters: {
         payloadEvent: JsonPath.stringToJson(
-          JsonPath.stringAt('$.dynamodb.NewImage.Payload.S'),
-        ),
-      },
+          JsonPath.stringAt('$.dynamodb.NewImage.Payload.S')
+        )
+      }
     });
 
     const computeProbaConstruct = new ComputeProbaConstruct(
       this,
-      'Compute Proba Of Victory',
+      'Compute Proba Of Victory'
     );
 
     const computeEloScorePlayerAConstruct = new ComputeEloScoreConstruct(
       this,
       'Compute Elo Score Player A',
       {
-        player: 'Player A',
-      },
+        player: 'Player A'
+      }
     );
 
     const computeEloScorePlayerBConstruct = new ComputeEloScoreConstruct(
       this,
       'Compute Elo Score Player B',
       {
-        player: 'Player B',
-      },
+        player: 'Player B'
+      }
     );
 
     const batchGetItem = new CallAwsService(this, 'BatchGetItem', {
@@ -71,23 +71,23 @@ export class StateMachineConstruct extends Construct {
           [props.table.tableName]: {
             Keys: [
               {
-                PK: JsonPath.objectAt('$.payloadEvent.PlayerA'),
+                PK: JsonPath.objectAt('$.payloadEvent.PlayerA')
               },
               {
-                PK: JsonPath.objectAt('$.payloadEvent.PlayerB'),
-              },
-            ],
-          },
-        },
+                PK: JsonPath.objectAt('$.payloadEvent.PlayerB')
+              }
+            ]
+          }
+        }
       },
       resultSelector: {
-        batchGetItem: JsonPath.stringAt(`$.Responses.${props.table.tableName}`),
+        batchGetItem: JsonPath.stringAt(`$.Responses.${props.table.tableName}`)
       },
-      resultPath: JsonPath.stringAt('$.TaskResult'),
+      resultPath: JsonPath.stringAt('$.TaskResult')
     });
 
     const mapStreamEvents = new Map(this, 'Map Stream Events', {
-      itemsPath: JsonPath.stringAt('$'),
+      itemsPath: JsonPath.stringAt('$')
     });
 
     const formatForScoreUpdate = new Pass(this, 'Format For Score Update', {
@@ -98,10 +98,10 @@ export class StateMachineConstruct extends Construct {
         scorePlayerB: JsonPath.stringAt('$.FormattedInput.scorePlayerB'),
         ProbabilityPlayerBWins: JsonPath.format(
           '{}',
-          JsonPath.stringAt('$.ProbaResult.result'),
+          JsonPath.stringAt('$.ProbaResult.result')
         ),
-        winner: JsonPath.stringAt('$.payloadEvent.Result.N'),
-      },
+        winner: JsonPath.stringAt('$.payloadEvent.Result.N')
+      }
     });
 
     const dynamoUpdatePlayerAItemConstruct = new DynamoUpdatePlayerItem(
@@ -109,11 +109,11 @@ export class StateMachineConstruct extends Construct {
       'Update PlayerA Score',
       {
         player: 'PlayerA',
-        table: props.table,
-      },
+        table: props.table
+      }
     );
     const branchPlayerA = new OneMinusXConstruct(this, 'One Minus Proba', {
-      xJsonPath: '$.ProbabilityPlayerBWins',
+      xJsonPath: '$.ProbabilityPlayerBWins'
     }).oneMinusX
       .next(
         new Pass(this, 'Filter Params Branch Player A', {
@@ -121,9 +121,9 @@ export class StateMachineConstruct extends Construct {
             player: JsonPath.stringAt('$.PlayerA'),
             score: JsonPath.stringAt('$.scorePlayerA'),
             winner: JsonPath.stringAt('$.winner'),
-            proba: JsonPath.stringAt('$.resultOneMinusX.value'),
-          },
-        }),
+            proba: JsonPath.stringAt('$.resultOneMinusX.value')
+          }
+        })
       )
       .next(computeEloScorePlayerAConstruct.formatForComputeEloScore)
       .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore)
@@ -134,11 +134,11 @@ export class StateMachineConstruct extends Construct {
       'Update PlayerB Score',
       {
         player: 'PlayerB',
-        table: props.table,
-      },
+        table: props.table
+      }
     );
     const branchPlayerB = new OneMinusXConstruct(this, 'One Minus Winner', {
-      xJsonPath: '$.winner',
+      xJsonPath: '$.winner'
     }).oneMinusX
       .next(
         new Pass(this, 'Filter Params Branch Player B', {
@@ -146,9 +146,9 @@ export class StateMachineConstruct extends Construct {
             player: JsonPath.stringAt('$.PlayerB'),
             score: JsonPath.stringAt('$.scorePlayerB'),
             winner: JsonPath.stringAt('$.resultOneMinusX.value'),
-            proba: JsonPath.stringAt('$.ProbabilityPlayerBWins'),
-          },
-        }),
+            proba: JsonPath.stringAt('$.ProbabilityPlayerBWins')
+          }
+        })
       )
       .next(computeEloScorePlayerBConstruct.formatForComputeEloScore)
       .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore)
@@ -163,7 +163,7 @@ export class StateMachineConstruct extends Construct {
           .next(computeProbaConstruct.formatForComputeProbaOfVictory)
           .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
           .next(formatForScoreUpdate)
-          .next(parallel.branch(branchPlayerA, branchPlayerB)),
+          .next(parallel.branch(branchPlayerA, branchPlayerB))
       )
       .next(succeed);
 
@@ -173,11 +173,11 @@ export class StateMachineConstruct extends Construct {
       logs: {
         destination: new LogGroup(this, 'TargetLogs', {
           // to be removed at later stage
-          removalPolicy: RemovalPolicy.DESTROY,
+          removalPolicy: RemovalPolicy.DESTROY
         }),
         includeExecutionData: true,
-        level: LogLevel.ALL,
-      },
+        level: LogLevel.ALL
+      }
     });
 
     this.stateMachine.grantStartSyncExecution(props.pipeRole);

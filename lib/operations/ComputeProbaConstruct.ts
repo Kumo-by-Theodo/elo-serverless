@@ -16,10 +16,10 @@ export class ComputeProbaConstruct extends Construct {
       {
         parameters: {
           scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
-          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N'),
+          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N')
         },
-        resultPath: '$.FormattedInput',
-      },
+        resultPath: '$.FormattedInput'
+      }
     );
 
     const computeProbaOfVictory = new Function(
@@ -32,8 +32,8 @@ export class ComputeProbaConstruct extends Construct {
                   callback(null, 1 / (1 + 10 ** ((parseInt(scorePlayerA) - parseInt(scorePlayerB)) / 400)));
                 };
               `),
-        runtime: Runtime.NODEJS_16_X,
-      },
+        runtime: Runtime.NODEJS_16_X
+      }
     );
 
     this.lambdaInvokeComputeProbaOfVictory = new LambdaInvoke(
@@ -43,8 +43,8 @@ export class ComputeProbaConstruct extends Construct {
         lambdaFunction: computeProbaOfVictory,
         inputPath: JsonPath.stringAt('$.FormattedInput'),
         resultSelector: { result: JsonPath.stringAt('$.Payload') },
-        resultPath: '$.ProbaResult',
-      },
+        resultPath: '$.ProbaResult'
+      }
     );
   }
 }

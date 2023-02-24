@@ -6,7 +6,7 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import type {
   PutItemCommandInput,
   TransactWriteItemsInput,
-  TransactGetItemsCommandInput,
+  TransactGetItemsCommandInput
 } from '@aws-sdk/client-dynamodb';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 
@@ -22,7 +22,7 @@ class StackUnderTest extends Stack {
 const app = new App();
 const stackUnderTest = new StackUnderTest(app, 'StackUnderTest', {});
 const test = new IntegTest(app, 'EloIntegTest', {
-  testCases: [stackUnderTest],
+  testCases: [stackUnderTest]
 });
 
 const playerAPK = 'PLAYER#Fred';
@@ -30,16 +30,16 @@ const addPlayerA: PutItemCommandInput = {
   TableName: stackUnderTest.table.tableName,
   Item: marshall({
     PK: playerAPK,
-    ELO: 1405,
-  }),
+    ELO: 1405
+  })
 };
 const playerBPK = 'PLAYER#Antoine';
 const addPlayerB: PutItemCommandInput = {
   TableName: stackUnderTest.table.tableName,
   Item: marshall({
     PK: playerBPK,
-    ELO: 1645,
-  }),
+    ELO: 1645
+  })
 };
 
 const addGameResult: PutItemCommandInput = {
@@ -54,24 +54,24 @@ const addGameResult: PutItemCommandInput = {
        * 0.5 if their is a tie
        * 0 if Player B wins against PlayerA
        */
-      Result: 1,
-    },
-  }),
+      Result: 1
+    }
+  })
 };
 
 const transaction: TransactWriteItemsInput = {
   TransactItems: [addPlayerA, addPlayerB, addGameResult].map(
-    putItemOperation => ({ Put: putItemOperation }),
-  ),
+    putItemOperation => ({ Put: putItemOperation })
+  )
 };
 
 const getPlayerElos: TransactGetItemsCommandInput = {
   TransactItems: [playerAPK, playerBPK].map(playerKey => ({
     Get: {
       Key: marshall({ PK: playerKey }),
-      TableName: stackUnderTest.table.tableName,
-    },
-  })),
+      TableName: stackUnderTest.table.tableName
+    }
+  }))
 };
 
 test.assertions
@@ -79,12 +79,12 @@ test.assertions
   .provider.addToRolePolicy({
     Effect: 'Allow',
     Action: ['dynamodb:PutItem'],
-    Resource: ['*'],
+    Resource: ['*']
   });
 test.assertions
   .awsApiCall('DynamoDB', 'transactGetItems', getPlayerElos)
   .provider.addToRolePolicy({
     Effect: 'Allow',
     Action: ['dynamodb:GetItem'],
-    Resource: ['*'],
+    Resource: ['*']
   });

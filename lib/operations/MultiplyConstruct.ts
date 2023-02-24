@@ -10,14 +10,14 @@ export class MultiplyConstruct extends Construct {
   constructor(
     scope: Construct,
     id: string,
-    props: { aJsonPath: string; multiplier: number },
+    props: { aJsonPath: string; multiplier: number }
   ) {
     super(scope, id);
 
     this.formatForMultiply = new Pass(this, 'Format For Multiply', {
       parameters: {
-        a: JsonPath.stringAt('$.Payload'),
-      },
+        a: JsonPath.stringAt('$.Payload')
+      }
     });
 
     const multiply = new Function(this, 'Multiply', {
@@ -27,15 +27,15 @@ export class MultiplyConstruct extends Construct {
                 callback(null, parseInt(a)*${props.multiplier});
               };
             `),
-      runtime: Runtime.NODEJS_16_X,
+      runtime: Runtime.NODEJS_16_X
     });
 
     this.lambdaInvokeMultiply = new LambdaInvoke(
       this,
       'Lambda Invoke Multiply',
       {
-        lambdaFunction: multiply,
-      },
+        lambdaFunction: multiply
+      }
     );
   }
 }

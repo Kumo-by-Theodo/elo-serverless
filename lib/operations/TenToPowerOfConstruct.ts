@@ -1,19 +1,19 @@
-import { Construct } from 'constructs';
+import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { JsonPath, Pass } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
-import { Pass, JsonPath } from 'aws-cdk-lib/aws-stepfunctions';
+import { Construct } from 'constructs';
 
 export class TenToPowerOfConstruct extends Construct {
   public formatForTenToPowerOf: Pass;
   public lambdaInvokeTenToPowerOf: LambdaInvoke;
 
-  constructor(scope: Construct, id: string, props: { aJsonPath: string }) {
+  constructor(scope: Construct, id: string) {
     super(scope, id);
 
     this.formatForTenToPowerOf = new Pass(this, 'Format For TenToPowerOf', {
       parameters: {
-        a: JsonPath.stringAt('$.Payload'),
-      },
+        a: JsonPath.stringAt('$.Payload')
+      }
     });
 
     const TenToPowerOf = new Function(this, 'TenToPowerOf', {
@@ -23,15 +23,15 @@ export class TenToPowerOfConstruct extends Construct {
                 callback(null, 10**parseFloat(a));
               };
             `),
-      runtime: Runtime.NODEJS_16_X,
+      runtime: Runtime.NODEJS_16_X
     });
 
     this.lambdaInvokeTenToPowerOf = new LambdaInvoke(
       this,
       'Lambda Invoke TenToPowerOf',
       {
-        lambdaFunction: TenToPowerOf,
-      },
+        lambdaFunction: TenToPowerOf
+      }
     );
   }
 }
