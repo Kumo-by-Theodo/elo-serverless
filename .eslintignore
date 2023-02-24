@@ -1,1 +1,4 @@
 node_modules/**
+dist/**/*
+src/test/integ.elo.js.snapshot/**/*
+cdk.out/**/*
