@@ -29,8 +29,12 @@ export class ComputeProbaConstruct extends Construct {
       'Lambda Invoke Compute Proba Of Victory',
       {
         payload: TaskInput.fromObject({
-          scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
-          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N')
+          scorePlayerA: JsonPath.stringAt(
+            '$.TaskResult.transactGetItems[0].Item.ELO.N'
+          ),
+          scorePlayerB: JsonPath.stringAt(
+            '$.TaskResult.transactGetItems[1].Item.ELO.N'
+          )
         }),
         lambdaFunction: computeProbaOfVictory,
         resultSelector: {

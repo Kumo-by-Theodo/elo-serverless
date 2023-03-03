@@ -12,6 +12,5 @@ To setup your development environment:
 
 - Run `pnpm run build` to transpile the content of the `test` folder
 - Run `pnpm cdk bootstrap aws://<YOUR_AWS_SSO_ACCOUNT_ID>/eu-west-1 --profile <YOUR_AWS_PROFILE>` to deploy a bootstrap stack (if you don't have one already)
-- Run `pnpm cdk deploy --app 'node dist/test/integ.elo.js' --all --profile <YOUR_AWS_PROFILE>` to deploy and test the `EloServerless` stack
-
-_Note: to build and redeploy your stack, you can use the `DEVELOPER_ID=<YOUR_AWS_PROFILE> pnpm run deploy-stack` that executes the `deploy-stack` command from package.json. It removes the content of the dist folder, build the new files and deploy the cdk stack. Don't forget to `aws sso --profile <YOUR_AWS_PROFILE>` before._
+- Run `pnpm cdk deploy --profile <YOUR_AWS_PROFILE>` to deploy `EloStack` stack
+- Run `DEVELOPER_ID=<YOUR_AWS_PROFILE> pnpm run test-stack` to deploy `EloStack` stack

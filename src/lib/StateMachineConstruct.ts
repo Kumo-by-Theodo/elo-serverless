@@ -54,26 +54,32 @@ export class StateMachineConstruct extends Construct {
       }
     );
 
-    const batchGetItem = new CallAwsService(this, 'BatchGetItem', {
+    const transactGetItems = new CallAwsService(this, 'TransactGetItems', {
       service: 'dynamodb',
-      action: 'batchGetItem',
-      iamResources: ['arn:aws:states:::aws-sdk:dynamodb:batchGetItem'],
+      action: 'transactGetItems',
+      iamResources: ['arn:aws:states:::aws-sdk:dynamodb:transactGetItems'],
       parameters: {
-        RequestItems: {
-          [props.table.tableName]: {
-            Keys: [
-              {
+        TransactItems: [
+          {
+            Get: {
+              Key: {
                 PK: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerA')
               },
-              {
+              TableName: props.table.tableName
+            }
+          },
+          {
+            Get: {
+              Key: {
                 PK: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerB')
-              }
-            ]
+              },
+              TableName: props.table.tableName
+            }
           }
-        }
+        ]
       },
       resultSelector: {
-        batchGetItem: JsonPath.stringAt(`$.Responses.${props.table.tableName}`)
+        transactGetItems: JsonPath.stringAt('$.Responses')
       },
       resultPath: JsonPath.stringAt('$.TaskResult')
     });
@@ -86,8 +92,12 @@ export class StateMachineConstruct extends Construct {
       parameters: {
         PlayerA: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerA'),
         PlayerB: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerB'),
-        scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
-        scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N'),
+        scorePlayerA: JsonPath.stringAt(
+          '$.TaskResult.transactGetItems[0].Item.ELO.N'
+        ),
+        scorePlayerB: JsonPath.stringAt(
+          '$.TaskResult.transactGetItems[1].Item.ELO.N'
+        ),
         ProbabilityPlayerBWins: JsonPath.format(
           '{}',
           JsonPath.stringAt('$.Result.probability')
@@ -150,7 +160,7 @@ export class StateMachineConstruct extends Construct {
 
     mapStreamEvents
       .iterator(
-        batchGetItem
+        transactGetItems
           .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
           .next(formatForScoreUpdate)
           .next(parallel.branch(branchPlayerA, branchPlayerB))
