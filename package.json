@@ -4,7 +4,6 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "deploy-stack": "rm -rf dist/* && pnpm run build && pnpm cdk deploy --app 'node dist/test/integ.elo.js' --all --profile $DEVELOPER_ID",
     "test-stack": "rm -rf dist/* && pnpm run build && pnpm integ-runner --directory dist --update-on-failed --no-clean --profiles $DEVELOPER_ID --parallel-regions eu-west-1",
     "build": "tsc -p tsconfig.build.json",
     "watch": "tsc -w",

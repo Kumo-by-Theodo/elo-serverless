@@ -85,12 +85,12 @@ export class StateMachineConstruct extends Construct {
     const formatForScoreUpdate = new Pass(this, 'Format For Score Update', {
       parameters: {
         PlayerA: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerA'),
-        scorePlayerA: JsonPath.stringAt('$.FormattedInput.scorePlayerA'),
         PlayerB: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerB'),
-        scorePlayerB: JsonPath.stringAt('$.FormattedInput.scorePlayerB'),
+        scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
+        scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N'),
         ProbabilityPlayerBWins: JsonPath.format(
           '{}',
-          JsonPath.stringAt('$.ProbaResult.result')
+          JsonPath.stringAt('$.Result.probability')
         ),
         winner: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.Result.N')
       }
@@ -151,7 +151,6 @@ export class StateMachineConstruct extends Construct {
     mapStreamEvents
       .iterator(
         batchGetItem
-          .next(computeProbaConstruct.formatForComputeProbaOfVictory)
           .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
           .next(formatForScoreUpdate)
           .next(parallel.branch(branchPlayerA, branchPlayerB))

@@ -1,26 +1,14 @@
 import { Construct } from 'constructs';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
 import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
-import { JsonPath, Pass } from 'aws-cdk-lib/aws-stepfunctions';
+import { JsonPath } from 'aws-cdk-lib/aws-stepfunctions';
 
 export class ComputeProbaConstruct extends Construct {
-  public formatForComputeProbaOfVictory: Pass;
   public lambdaInvokeComputeProbaOfVictory: LambdaInvoke;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
-
-    this.formatForComputeProbaOfVictory = new Pass(
-      this,
-      'Format For Compute Proba Of Victory',
-      {
-        parameters: {
-          scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
-          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N')
-        },
-        resultPath: '$.FormattedInput'
-      }
-    );
 
     const computeProbaOfVictory = new Function(
       this,
@@ -40,10 +28,15 @@ export class ComputeProbaConstruct extends Construct {
       this,
       'Lambda Invoke Compute Proba Of Victory',
       {
+        payload: TaskInput.fromObject({
+          scorePlayerA: JsonPath.stringAt('$.TaskResult.batchGetItem[0].ELO.N'),
+          scorePlayerB: JsonPath.stringAt('$.TaskResult.batchGetItem[1].ELO.N')
+        }),
         lambdaFunction: computeProbaOfVictory,
-        inputPath: JsonPath.stringAt('$.FormattedInput'),
-        resultSelector: { result: JsonPath.stringAt('$.Payload') },
-        resultPath: '$.ProbaResult'
+        resultSelector: {
+          probability: JsonPath.stringAt('$.Payload')
+        },
+        resultPath: '$.Result'
       }
     );
   }
