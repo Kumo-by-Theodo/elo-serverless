@@ -1,12 +1,12 @@
-import { App, Stack, StackProps } from 'aws-cdk-lib';
+import { App, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { EloServerless } from '../lib/CoreConstruct';
-import { IntegTest } from '@aws-cdk/integ-tests-alpha';
+import { ExpectedResult, IntegTest } from '@aws-cdk/integ-tests-alpha';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import type {
   PutItemCommandInput,
   TransactWriteItemsInput,
-  TransactGetItemsCommandInput
+  BatchGetItemInput
 } from '@aws-sdk/client-dynamodb';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 
@@ -65,13 +65,12 @@ const transaction: TransactWriteItemsInput = {
   )
 };
 
-const getPlayerElos: TransactGetItemsCommandInput = {
-  TransactItems: [playerAPK, playerBPK].map(playerKey => ({
-    Get: {
-      Key: marshall({ PK: playerKey }),
-      TableName: stackUnderTest.table.tableName
+const getPlayerElos: BatchGetItemInput = {
+  RequestItems: {
+    'StackUnderTest-EloServerlessTable73304A80-LY3BZGDQ2W6H': {
+      Keys: [playerAPK, playerBPK].map(playerKey => ({ PK: { S: playerKey } }))
     }
-  }))
+  }
 };
 
 test.assertions
@@ -81,10 +80,32 @@ test.assertions
     Action: ['dynamodb:PutItem'],
     Resource: ['*']
   });
+
 test.assertions
-  .awsApiCall('DynamoDB', 'transactGetItems', getPlayerElos)
-  .provider.addToRolePolicy({
-    Effect: 'Allow',
-    Action: ['dynamodb:GetItem'],
-    Resource: ['*']
-  });
+  .awsApiCall('DynamoDB', 'batchGetItem', getPlayerElos)
+  .expect(
+    ExpectedResult.objectLike({
+      Responses: {
+        'StackUnderTest-EloServerlessTable73304A80-LY3BZGDQ2W6H': [
+          {
+            PK: {
+              S: 'PLAYER#Antoine'
+            },
+            ELO: {
+              N: '1619'
+            }
+          },
+          {
+            PK: {
+              S: 'PLAYER#Fred'
+            },
+            ELO: {
+              N: '1431'
+            }
+          }
+        ]
+      },
+      UnprocessedKeys: {}
+    })
+  )
+  .waitForAssertions({ totalTimeout: Duration.minutes(1) });
