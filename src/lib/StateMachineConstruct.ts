@@ -11,15 +11,15 @@ import {
   StateMachineType,
   Succeed
 } from 'aws-cdk-lib/aws-stepfunctions';
+import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Role } from 'aws-cdk-lib/aws-iam';
-import { CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import {
+  CallAwsService,
+  LambdaInvoke
+} from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
-import { DynamoUpdatePlayerItem } from './DynamoUpdatePlayerItem';
-import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
-import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
-import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -30,29 +30,6 @@ export class StateMachineConstruct extends Construct {
     props: { pipeRole: Role; table: Table }
   ) {
     super(scope, id);
-
-    const succeed = new Succeed(this, 'Succeed');
-
-    const computeProbaConstruct = new ComputeProbaConstruct(
-      this,
-      'Compute Proba Of Victory'
-    );
-
-    const computeEloScorePlayerAConstruct = new ComputeEloScoreConstruct(
-      this,
-      'Compute Elo Score Player A',
-      {
-        player: 'Player A'
-      }
-    );
-
-    const computeEloScorePlayerBConstruct = new ComputeEloScoreConstruct(
-      this,
-      'Compute Elo Score Player B',
-      {
-        player: 'Player B'
-      }
-    );
 
     const transactGetItems = new CallAwsService(this, 'TransactGetItems', {
       service: 'dynamodb',
@@ -78,94 +55,121 @@ export class StateMachineConstruct extends Construct {
           }
         ]
       },
+      resultPath: JsonPath.stringAt('$.transactGetItems')
+    });
+
+    const formatTask = new Pass(this, 'Format for computes', {
+      parameters: {
+        winner: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.Result.N'),
+        playerA: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerA.S'),
+        playerB: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerB.S'),
+        scorePlayerA: JsonPath.objectAt(
+          '$.transactGetItems.Responses[0].Item.ELO.N'
+        ),
+        scorePlayerB: JsonPath.objectAt(
+          '$.transactGetItems.Responses[1].Item.ELO.N'
+        )
+      }
+    });
+
+    const parallel = new Parallel(this, 'Parallel');
+
+    const branchPlayerA = new LambdaInvoke(this, 'Compute score player A', {
+      lambdaFunction: new Function(this, 'Compute A', {
+        handler: 'index.handler',
+        code: Code.fromInline(`
+                  exports.handler = async ({scorePlayerA,scorePlayerB,winner}) => {
+                    const scoreA = parseInt(scorePlayerA);
+                    const scoreB = parseInt(scorePlayerB);
+                    const P1 = 1 / (1 + 10 ** ((scoreB - scoreA) / 400));
+                    const R1 = parseInt(winner);
+                    const newScorePlayerA = Math.round(scoreA + 32 * (R1 - P1));
+                    return newScorePlayerA.toString();
+                  };
+              `),
+        runtime: Runtime.NODEJS_16_X
+      }),
       resultSelector: {
-        transactGetItems: JsonPath.stringAt('$.Responses')
+        newScorePlayerA: JsonPath.stringAt('$.Payload')
       },
-      resultPath: JsonPath.stringAt('$.TaskResult')
+      resultPath: JsonPath.stringAt('$.ScoreResult')
+    });
+
+    const branchPlayerB = new LambdaInvoke(this, 'Compute score player B', {
+      lambdaFunction: new Function(this, 'Compute B', {
+        handler: 'index.handler',
+        code: Code.fromInline(`
+                  exports.handler = async ({scorePlayerA,scorePlayerB,winner}) => {
+                    const scoreA = parseInt(scorePlayerA);
+                    const scoreB = parseInt(scorePlayerB);
+                    const P2 = 1 / (1 + 10 ** ((scoreA - scoreB) / 400));
+                    const R2 = 1 - parseInt(winner);
+                    const newScorePlayerB = Math.round(scoreB + 32 * (R2 - P2));
+                    return newScorePlayerB.toString();
+                  };
+              `),
+        runtime: Runtime.NODEJS_16_X
+      }),
+      resultSelector: {
+        newScorePlayerB: JsonPath.stringAt('$.Payload')
+      },
+      resultPath: JsonPath.stringAt('$.ScoreResult')
+    });
+
+    const transactWriteItems = new CallAwsService(this, 'TransactWriteItems', {
+      service: 'dynamodb',
+      action: 'transactWriteItems',
+      iamResources: ['arn:aws:states:::aws-sdk:dynamodb:transactWriteItems'],
+      parameters: {
+        TransactItems: [
+          {
+            Update: {
+              UpdateExpression: 'set ELO = :elo',
+              ExpressionAttributeValues: {
+                ':elo': {
+                  N: JsonPath.stringAt('$[0].ScoreResult.newScorePlayerA')
+                }
+              },
+              Key: {
+                PK: {
+                  S: JsonPath.stringAt('$[0].playerA')
+                }
+              },
+              TableName: props.table.tableName
+            }
+          },
+          {
+            Update: {
+              UpdateExpression: 'set ELO = :elo',
+              ExpressionAttributeValues: {
+                ':elo': {
+                  N: JsonPath.stringAt('$[1].ScoreResult.newScorePlayerB')
+                }
+              },
+              Key: {
+                PK: {
+                  S: JsonPath.stringAt('$[1].playerB')
+                }
+              },
+              TableName: props.table.tableName
+            }
+          }
+        ]
+      }
     });
 
     const mapStreamEvents = new Map(this, 'Map Stream Events', {
       itemsPath: JsonPath.stringAt('$')
     });
 
-    const formatForScoreUpdate = new Pass(this, 'Format For Score Update', {
-      parameters: {
-        PlayerA: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerA'),
-        PlayerB: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerB'),
-        scorePlayerA: JsonPath.stringAt(
-          '$.TaskResult.transactGetItems[0].Item.ELO.N'
-        ),
-        scorePlayerB: JsonPath.stringAt(
-          '$.TaskResult.transactGetItems[1].Item.ELO.N'
-        ),
-        ProbabilityPlayerBWins: JsonPath.format(
-          '{}',
-          JsonPath.stringAt('$.Result.probability')
-        ),
-        winner: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.Result.N')
-      }
-    });
-
-    const dynamoUpdatePlayerAItemConstruct = new DynamoUpdatePlayerItem(
-      this,
-      'Update PlayerA Score',
-      {
-        player: 'PlayerA',
-        table: props.table
-      }
-    );
-    const branchPlayerA = new OneMinusXConstruct(this, 'One Minus Proba', {
-      xJsonPath: '$.ProbabilityPlayerBWins'
-    }).oneMinusX
-      .next(
-        new Pass(this, 'Filter Params Branch Player A', {
-          parameters: {
-            player: JsonPath.stringAt('$.PlayerA'),
-            score: JsonPath.stringAt('$.scorePlayerA'),
-            winner: JsonPath.stringAt('$.winner'),
-            proba: JsonPath.stringAt('$.resultOneMinusX.value')
-          }
-        })
-      )
-      .next(computeEloScorePlayerAConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore)
-      .next(dynamoUpdatePlayerAItemConstruct.dynamoUpdatePlayerItem);
-
-    const dynamoUpdatePlayerBItemConstruct = new DynamoUpdatePlayerItem(
-      this,
-      'Update PlayerB Score',
-      {
-        player: 'PlayerB',
-        table: props.table
-      }
-    );
-    const branchPlayerB = new OneMinusXConstruct(this, 'One Minus Winner', {
-      xJsonPath: '$.winner'
-    }).oneMinusX
-      .next(
-        new Pass(this, 'Filter Params Branch Player B', {
-          parameters: {
-            player: JsonPath.stringAt('$.PlayerB'),
-            score: JsonPath.stringAt('$.scorePlayerB'),
-            winner: JsonPath.stringAt('$.resultOneMinusX.value'),
-            proba: JsonPath.stringAt('$.ProbabilityPlayerBWins')
-          }
-        })
-      )
-      .next(computeEloScorePlayerBConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore)
-      .next(dynamoUpdatePlayerBItemConstruct.dynamoUpdatePlayerItem);
-
-    const parallel = new Parallel(this, 'Parallel');
-
     mapStreamEvents
       .iterator(
         transactGetItems
-          .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
-          .next(formatForScoreUpdate)
+          .next(formatTask)
           .next(parallel.branch(branchPlayerA, branchPlayerB))
+          .next(transactWriteItems)
       )
-      .next(succeed);
+      .next(new Succeed(this, 'Success'));
 
     this.stateMachine = new StateMachine(this, 'TargetExpressStateMachine', {
       definition: mapStreamEvents,
