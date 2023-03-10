@@ -8,7 +8,7 @@ export class TransactGetItems extends Construct {
   constructor(scope: Construct, id: string, props: { tableName: string }) {
     super(scope, id);
 
-    this.transactGetItems = new CallAwsService(this, 'TransactGetItems', {
+    this.transactGetItems = new CallAwsService(this, 'Transact Get Items', {
       service: 'dynamodb',
       action: 'transactGetItems',
       iamResources: ['arn:aws:states:::aws-sdk:dynamodb:transactGetItems'],

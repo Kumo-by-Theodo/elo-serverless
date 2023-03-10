@@ -1,5 +1,5 @@
 {
-  "app": "pnpm ts-node --prefer-ts-exts bin/index.ts",
+  "app": "pnpm ts-node --prefer-ts-exts lib/index.ts",
   "watch": {
     "include": ["**"],
     "exclude": [
