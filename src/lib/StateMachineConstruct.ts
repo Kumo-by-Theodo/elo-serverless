@@ -5,8 +5,6 @@ import {
   JsonPath,
   LogLevel,
   Map,
-  Parallel,
-  Pass,
   StateMachine,
   StateMachineType,
   Succeed
@@ -14,12 +12,10 @@ import {
 
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Role } from 'aws-cdk-lib/aws-iam';
-import { CallAwsService } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
-import { DynamoUpdatePlayerItem } from './DynamoUpdatePlayerItem';
-import { ComputeEloScoreConstruct } from './operations/ComputeEloScoreConstruct';
-import { ComputeProbaConstruct } from './operations/ComputeProbaConstruct';
-import { OneMinusXConstruct } from './operations/OneMinusXConstruct';
+import { ComputeEloScores } from './ComputeEloScores';
+import { TransactGetItems } from './TransactGetItems';
+import { TransactWriteItems } from './TransactWriteItems';
 
 export class StateMachineConstruct extends Construct {
   public stateMachine: IStateMachine;
@@ -31,141 +27,34 @@ export class StateMachineConstruct extends Construct {
   ) {
     super(scope, id);
 
-    const succeed = new Succeed(this, 'Succeed');
-
-    const computeProbaConstruct = new ComputeProbaConstruct(
-      this,
-      'Compute Proba Of Victory'
-    );
-
-    const computeEloScorePlayerAConstruct = new ComputeEloScoreConstruct(
-      this,
-      'Compute Elo Score Player A',
-      {
-        player: 'Player A'
-      }
-    );
-
-    const computeEloScorePlayerBConstruct = new ComputeEloScoreConstruct(
-      this,
-      'Compute Elo Score Player B',
-      {
-        player: 'Player B'
-      }
-    );
-
-    const transactGetItems = new CallAwsService(this, 'TransactGetItems', {
-      service: 'dynamodb',
-      action: 'transactGetItems',
-      iamResources: ['arn:aws:states:::aws-sdk:dynamodb:transactGetItems'],
-      parameters: {
-        TransactItems: [
-          {
-            Get: {
-              Key: {
-                PK: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerA')
-              },
-              TableName: props.table.tableName
-            }
-          },
-          {
-            Get: {
-              Key: {
-                PK: JsonPath.objectAt('$.dynamodb.NewImage.Payload.M.PlayerB')
-              },
-              TableName: props.table.tableName
-            }
-          }
-        ]
-      },
-      resultSelector: {
-        transactGetItems: JsonPath.stringAt('$.Responses')
-      },
-      resultPath: JsonPath.stringAt('$.TaskResult')
-    });
-
     const mapStreamEvents = new Map(this, 'Map Stream Events', {
       itemsPath: JsonPath.stringAt('$')
     });
 
-    const formatForScoreUpdate = new Pass(this, 'Format For Score Update', {
-      parameters: {
-        PlayerA: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerA'),
-        PlayerB: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.PlayerB'),
-        scorePlayerA: JsonPath.stringAt(
-          '$.TaskResult.transactGetItems[0].Item.ELO.N'
-        ),
-        scorePlayerB: JsonPath.stringAt(
-          '$.TaskResult.transactGetItems[1].Item.ELO.N'
-        ),
-        ProbabilityPlayerBWins: JsonPath.format(
-          '{}',
-          JsonPath.stringAt('$.Result.probability')
-        ),
-        winner: JsonPath.stringAt('$.dynamodb.NewImage.Payload.M.Result.N')
-      }
-    });
-
-    const dynamoUpdatePlayerAItemConstruct = new DynamoUpdatePlayerItem(
+    const transactGetItemsTask = new TransactGetItems(
       this,
-      'Update PlayerA Score',
-      {
-        player: 'PlayerA',
-        table: props.table
-      }
+      'Transact Get Items Task',
+      { tableName: props.table.tableName }
     );
-    const branchPlayerA = new OneMinusXConstruct(this, 'One Minus Proba', {
-      xJsonPath: '$.ProbabilityPlayerBWins'
-    }).oneMinusX
-      .next(
-        new Pass(this, 'Filter Params Branch Player A', {
-          parameters: {
-            player: JsonPath.stringAt('$.PlayerA'),
-            score: JsonPath.stringAt('$.scorePlayerA'),
-            winner: JsonPath.stringAt('$.winner'),
-            proba: JsonPath.stringAt('$.resultOneMinusX.value')
-          }
-        })
-      )
-      .next(computeEloScorePlayerAConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerAConstruct.lambdaInvokeComputeEloScore)
-      .next(dynamoUpdatePlayerAItemConstruct.dynamoUpdatePlayerItem);
 
-    const dynamoUpdatePlayerBItemConstruct = new DynamoUpdatePlayerItem(
+    const computeEloScoresTask = new ComputeEloScores(
       this,
-      'Update PlayerB Score',
-      {
-        player: 'PlayerB',
-        table: props.table
-      }
+      'Compute ELO scores Task'
     );
-    const branchPlayerB = new OneMinusXConstruct(this, 'One Minus Winner', {
-      xJsonPath: '$.winner'
-    }).oneMinusX
-      .next(
-        new Pass(this, 'Filter Params Branch Player B', {
-          parameters: {
-            player: JsonPath.stringAt('$.PlayerB'),
-            score: JsonPath.stringAt('$.scorePlayerB'),
-            winner: JsonPath.stringAt('$.resultOneMinusX.value'),
-            proba: JsonPath.stringAt('$.ProbabilityPlayerBWins')
-          }
-        })
-      )
-      .next(computeEloScorePlayerBConstruct.formatForComputeEloScore)
-      .next(computeEloScorePlayerBConstruct.lambdaInvokeComputeEloScore)
-      .next(dynamoUpdatePlayerBItemConstruct.dynamoUpdatePlayerItem);
 
-    const parallel = new Parallel(this, 'Parallel');
+    const transactWriteItemsTask = new TransactWriteItems(
+      this,
+      'Transact Write Items Task',
+      { tableName: props.table.tableName }
+    );
 
     mapStreamEvents
       .iterator(
-        transactGetItems
-          .next(computeProbaConstruct.lambdaInvokeComputeProbaOfVictory)
-          .next(formatForScoreUpdate)
-          .next(parallel.branch(branchPlayerA, branchPlayerB))
+        transactGetItemsTask.transactGetItems
+          .next(computeEloScoresTask.computeEloScores)
+          .next(transactWriteItemsTask.transactWriteItems)
       )
-      .next(succeed);
+      .next(new Succeed(this, 'Success'));
 
     this.stateMachine = new StateMachine(this, 'TargetExpressStateMachine', {
       definition: mapStreamEvents,
