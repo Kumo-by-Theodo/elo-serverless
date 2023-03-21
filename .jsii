@@ -925,19 +925,6 @@
             }
           }
         },
-        "aws-cdk-lib.aws_devicefarm": {
-          "targets": {
-            "dotnet": {
-              "namespace": "Amazon.CDK.AWS.DeviceFarm"
-            },
-            "java": {
-              "package": "software.amazon.awscdk.services.devicefarm"
-            },
-            "python": {
-              "module": "aws_cdk.aws_devicefarm"
-            }
-          }
-        },
         "aws-cdk-lib.aws_devopsguru": {
           "targets": {
             "dotnet": {
@@ -1757,19 +1744,6 @@
             }
           }
         },
-        "aws-cdk-lib.aws_kendraranking": {
-          "targets": {
-            "dotnet": {
-              "namespace": "Amazon.CDK.AWS.KendraRanking"
-            },
-            "java": {
-              "package": "software.amazon.awscdk.services.kendraranking"
-            },
-            "python": {
-              "module": "aws_cdk.aws_kendraranking"
-            }
-          }
-        },
         "aws-cdk-lib.aws_kinesis": {
           "targets": {
             "dotnet": {
@@ -2248,19 +2222,6 @@
             },
             "python": {
               "module": "aws_cdk.aws_oam"
-            }
-          }
-        },
-        "aws-cdk-lib.aws_omics": {
-          "targets": {
-            "dotnet": {
-              "namespace": "Amazon.CDK.AWS.Omics"
-            },
-            "java": {
-              "package": "software.amazon.awscdk.services.omics"
-            },
-            "python": {
-              "module": "aws_cdk.aws_omics"
             }
           }
         },
@@ -2888,19 +2849,6 @@
             }
           }
         },
-        "aws-cdk-lib.aws_simspaceweaver": {
-          "targets": {
-            "dotnet": {
-              "namespace": "Amazon.CDK.AWS.SimSpaceWeaver"
-            },
-            "java": {
-              "package": "software.amazon.awscdk.services.simspaceweaver"
-            },
-            "python": {
-              "module": "aws_cdk.aws_simspaceweaver"
-            }
-          }
-        },
         "aws-cdk-lib.aws_sns": {
           "targets": {
             "dotnet": {
@@ -3344,12 +3292,12 @@
       }
     }
   },
-  "description": "@kumo-by-theodo/elo-serverless",
+  "description": "elo-serverless",
   "docs": {
     "stability": "stable"
   },
   "homepage": "https://github.com/Kumo-by-Theodo/elo-serverless.git",
-  "jsiiVersion": "1.77.0 (build 3e5fa88)",
+  "jsiiVersion": "1.78.1 (build 878761e)",
   "license": "MIT",
   "metadata": {
     "jsii": {
@@ -3359,9 +3307,9 @@
     },
     "tscRootDir": "lib"
   },
-  "name": "@kumo-by-theodo/elo-serverless",
+  "name": "elo-serverless",
   "readme": {
-    "markdown": "# ELO rating system - CDK TypeScript Construct\n\nA level 3 CDK construct to deploy an ELO scoring stack in full serverless 🖖🏼\n\n![architecture schema](./Elo_Serverless.png)\n\n## Install\n\n```bash\npnpm install elo-serverless\n```\n\n## Quickstart\n\n```typescript\nimport * as cdk from 'aws-cdk-lib';\nimport { Construct } from 'constructs';\nimport { EloServerless } from 'elo-serverless';\n\nexport class MyCustomStack extends cdk.Stack {\n  constructor(scope: Construct, id: string, props?: cdk.StackProps) {\n    super(scope, id, props);\n\n    new EloServerless(this, 'ELO Serverless');\n  }\n}\n```\n\n## Setup\n\nThe `src/lib` folder contains the CDK code used to deploy the `EloServerless` stack. The `src/test` folder defines the integration test that interacts with the `EloServerless` stack to check that it behaves as expected.\nTo setup your development environment:\n\n- Run `pnpm cdk bootstrap aws://<YOUR_AWS_SSO_ACCOUNT_ID>/eu-west-1 --profile <YOUR_AWS_PROFILE>` to deploy a bootstrap stack (if you don't have one already)\n- Run `pnpm cdk deploy --profile <YOUR_AWS_PROFILE>` to deploy `MyCustomStack` stack\n- Run `pnpm integ-runner --directory lib --language typescript --update-on-failed --no-clean --parallel-regions eu-west-1 --profiles <YOUR_AWS_PROFILE>` to test `MyCustomStack` stack\n\n_Note: if you have a credentials / SSO error, run `aws sso login --profile <YOUR_AWS_PROFILE>`_\n"
+    "markdown": "# ELO rating system - CDK TypeScript Construct\n\nA level 3 CDK construct to allow developers to deploy an ELO scoring stack in full serverless 🖖🏼\n\n![architecture schema](./Elo_Serverless.png)\n\n## Install\n\n```bash\nnpm install elo-serverless\n```\n\n## Quickstart\n\n```typescript\nimport * as cdk from 'aws-cdk-lib';\nimport { Construct } from 'constructs';\nimport { EloServerless } from 'elo-serverless';\n\nexport class MyCustomStack extends cdk.Stack {\n  constructor(scope: Construct, id: string, props?: cdk.StackProps) {\n    super(scope, id, props);\n\n    new EloServerless(this, 'ELO Serverless');\n  }\n}\n```\n\n## Setup\n\nThe `src/lib` folder contains the CDK code used to deploy the `EloServerless` stack. The `src/test` folder defines the integration test that interacts with the `EloServerless` stack to check that it behaves as expected.\nTo setup your development environment:\n\n- Run `npm run build` to transpile the content of the `test` folder\n- Run `npm cdk bootstrap aws://<YOUR_AWS_SSO_ACCOUNT_ID>/eu-west-1 --profile <YOUR_AWS_PROFILE>` to deploy a bootstrap stack (if you don't have one already)\n- Run `npm cdk deploy --profile <YOUR_AWS_PROFILE>` to deploy `MyCustomStack` stack\n- Run `DEVELOPER_ID=<YOUR_AWS_PROFILE> npm run test-stack` to test `MyCustomStack` stack\n\n_Note: if you have a credentials / SSO error, run `aws sso login --profile <YOUR_AWS_PROFILE>`_\n"
   },
   "repository": {
     "type": "git",
@@ -3384,7 +3332,7 @@
       "package": "io.github.kumobytheodo.eloserverless"
     },
     "js": {
-      "npm": "@kumo-by-theodo/elo-serverless"
+      "npm": "elo-serverless"
     },
     "python": {
       "distName": "elo-serverless",
@@ -3392,13 +3340,13 @@
     }
   },
   "types": {
-    "@kumo-by-theodo/elo-serverless.EloServerless": {
-      "assembly": "@kumo-by-theodo/elo-serverless",
+    "elo-serverless.EloServerless": {
+      "assembly": "elo-serverless",
       "base": "constructs.Construct",
       "docs": {
         "stability": "stable"
       },
-      "fqn": "@kumo-by-theodo/elo-serverless.EloServerless",
+      "fqn": "elo-serverless.EloServerless",
       "initializer": {
         "docs": {
           "stability": "stable"
@@ -3445,13 +3393,13 @@
       ],
       "symbolId": "lib/index:EloServerless"
     },
-    "@kumo-by-theodo/elo-serverless.EloServerlessProps": {
-      "assembly": "@kumo-by-theodo/elo-serverless",
+    "elo-serverless.EloServerlessProps": {
+      "assembly": "elo-serverless",
       "datatype": true,
       "docs": {
         "stability": "stable"
       },
-      "fqn": "@kumo-by-theodo/elo-serverless.EloServerlessProps",
+      "fqn": "elo-serverless.EloServerlessProps",
       "kind": "interface",
       "locationInModule": {
         "filename": "lib/index.ts",
@@ -3462,5 +3410,5 @@
     }
   },
   "version": "0.1.3",
-  "fingerprint": "L4PEOahvi71VrItNpcShKzZacJuEVvt/KqomUdO61uQ="
+  "fingerprint": "ErZ0f8Y40PxvSRDvFzzbYHtmkGG7nRZYOOX+tKc5XwA="
 }
