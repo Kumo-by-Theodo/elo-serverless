@@ -1,4 +1,4 @@
-import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Architecture, Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { JsonPath, TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
@@ -9,10 +9,10 @@ export class ComputeEloScores extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const computeNewScores = new Function(this, 'Compute New Scores', {
+    const computeNewScores = new Function(this, 'Compute Elo Scores Function', {
       handler: 'index.handler',
       code: Code.fromInline(`
-                  exports.handler = async ({scorePlayerA,scorePlayerB,winner}) => {
+                  exports.handler = ({scorePlayerA,scorePlayerB,winner}, _, callback) => {
                     const scoreA = parseInt(scorePlayerA);
                     const scoreB = parseInt(scorePlayerB);
                     const P1 = 1 / (1 + 10 ** ((scoreB - scoreA) / 400));
@@ -21,10 +21,11 @@ export class ComputeEloScores extends Construct {
                     const R2 = 1 - parseInt(winner);
                     const newScorePlayerB = Math.round(scoreB + 32 * (R2 - P2)).toString();
                     const newScorePlayerA = Math.round(scoreA + 32 * (R1 - P1)).toString();
-                    return {newScorePlayerA, newScorePlayerB}
+                    callback(null, {newScorePlayerA, newScorePlayerB})
                   };
               `),
-      runtime: Runtime.NODEJS_16_X
+      runtime: Runtime.NODEJS_16_X,
+      architecture: Architecture.ARM_64
     });
 
     this.computeEloScores = new LambdaInvoke(this, `Compute ELO Scores`, {

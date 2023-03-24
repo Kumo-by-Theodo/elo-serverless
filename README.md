@@ -1,16 +1,38 @@
-# Welcome to your CDK TypeScript Construct Library project
+# ELO rating system - CDK TypeScript Construct
 
-You should explore the contents of this project. It demonstrates a CDK Construct Library that includes a construct (`EloServerless`)
-which contains an Amazon SQS queue that is subscribed to an Amazon SNS topic.
+A level 3 CDK construct to deploy an ELO scoring stack in full serverless 🖖🏼
 
-The construct defines an interface (`EloServerlessProps`) to configure the visibility timeout of the queue.
+![architecture schema](./Elo_Serverless.png)
+
+## Install
+
+```bash
+pnpm install elo-serverless
+```
+
+## Quickstart
+
+```typescript
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { EloServerless } from 'elo-serverless';
+
+export class MyCustomStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    new EloServerless(this, 'ELO Serverless');
+  }
+}
+```
 
 ## Setup
 
 The `src/lib` folder contains the CDK code used to deploy the `EloServerless` stack. The `src/test` folder defines the integration test that interacts with the `EloServerless` stack to check that it behaves as expected.
 To setup your development environment:
 
-- Run `pnpm run build` to transpile the content of the `test` folder
 - Run `pnpm cdk bootstrap aws://<YOUR_AWS_SSO_ACCOUNT_ID>/eu-west-1 --profile <YOUR_AWS_PROFILE>` to deploy a bootstrap stack (if you don't have one already)
-- Run `pnpm cdk deploy --profile <YOUR_AWS_PROFILE>` to deploy `EloStack` stack
-- Run `DEVELOPER_ID=<YOUR_AWS_PROFILE> pnpm run test-stack` to deploy `EloStack` stack
+- Run `pnpm cdk deploy --profile <YOUR_AWS_PROFILE>` to deploy `MyCustomStack` stack
+- Run `pnpm integ-runner --directory lib --language typescript --update-on-failed --no-clean --parallel-regions eu-west-1 --profiles <YOUR_AWS_PROFILE>` to test `MyCustomStack` stack
+
+_Note: if you have a credentials / SSO error, run `aws sso login --profile <YOUR_AWS_PROFILE>`_

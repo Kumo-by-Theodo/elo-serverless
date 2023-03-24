@@ -1,6 +1,6 @@
 import { App, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { EloServerless } from '../src/lib/CoreConstruct';
+import { EloServerless } from '../lib';
 
 class EloStack extends Stack {
   constructor(scope: Construct, id: string) {

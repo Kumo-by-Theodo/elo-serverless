@@ -1,6 +1,6 @@
 import { App, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { EloServerless } from '../lib/CoreConstruct';
+import { EloServerless } from '../index';
 import { ExpectedResult, IntegTest } from '@aws-cdk/integ-tests-alpha';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import type {
@@ -67,7 +67,7 @@ const transaction: TransactWriteItemsInput = {
 
 const getPlayerElos: BatchGetItemInput = {
   RequestItems: {
-    'StackUnderTest-EloServerlessTable73304A80-LY3BZGDQ2W6H': {
+    'StackUnderTest-EloServerlessTable73304A80-11YJONDY1TYSN': {
       Keys: [playerAPK, playerBPK].map(playerKey => ({ PK: { S: playerKey } }))
     }
   }
@@ -86,7 +86,7 @@ test.assertions
   .expect(
     ExpectedResult.objectLike({
       Responses: {
-        'StackUnderTest-EloServerlessTable73304A80-LY3BZGDQ2W6H': [
+        'StackUnderTest-EloServerlessTable73304A80-11YJONDY1TYSN': [
           {
             PK: {
               S: 'PLAYER#Antoine'

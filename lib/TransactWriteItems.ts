@@ -8,7 +8,7 @@ export class TransactWriteItems extends Construct {
   constructor(scope: Construct, id: string, props: { tableName: string }) {
     super(scope, id);
 
-    this.transactWriteItems = new CallAwsService(this, 'TransactWriteItems', {
+    this.transactWriteItems = new CallAwsService(this, 'Transact Write Items', {
       service: 'dynamodb',
       action: 'transactWriteItems',
       iamResources: ['arn:aws:states:::aws-sdk:dynamodb:transactWriteItems'],

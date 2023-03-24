@@ -7,3 +7,7 @@ node_modules
 .cdk.staging
 cdk.out
 pnpm-lock.yaml
+
+dist
+
+package/js
