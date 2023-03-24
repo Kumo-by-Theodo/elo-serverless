@@ -11,6 +11,7 @@ import {
   FilterRule,
   StartingPosition
 } from 'aws-cdk-lib/aws-lambda';
+import { ApiGatewayToDynamoDB } from '@aws-solutions-constructs/aws-apigateway-dynamodb';
 
 import { CfnPipe } from 'aws-cdk-lib/aws-pipes';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
@@ -21,6 +22,7 @@ import { StateMachineConstruct } from './StateMachineConstruct';
 export interface EloServerlessProps {}
 
 const PK = 'PK';
+const TABLE_NAME = 'EloServerlessDynamoDbTable';
 
 export class EloServerless extends Construct {
   public table: Table;
@@ -31,13 +33,26 @@ export class EloServerless extends Construct {
       retentionPeriod: Duration.days(14)
     });
 
-    this.table = new Table(this, 'Table', {
-      billingMode: BillingMode.PAY_PER_REQUEST,
-      partitionKey: { name: PK, type: AttributeType.STRING },
-      stream: StreamViewType.NEW_AND_OLD_IMAGES,
-      // to be removed at later stage
-      removalPolicy: RemovalPolicy.DESTROY
-    });
+    const { dynamoTable } = new ApiGatewayToDynamoDB(
+      this,
+      'test-api-gateway-dynamodb-default',
+      {
+        dynamoTableProps: {
+          tableName: TABLE_NAME,
+          billingMode: BillingMode.PAY_PER_REQUEST,
+          partitionKey: { name: PK, type: AttributeType.STRING },
+          stream: StreamViewType.NEW_AND_OLD_IMAGES,
+          // to be removed at later stage
+          removalPolicy: RemovalPolicy.DESTROY
+        },
+        allowDeleteOperation: true,
+        allowReadOperation: true,
+        allowCreateOperation: true,
+        createRequestTemplate: `{TableName: ${TABLE_NAME},Key: {'${PK}': {S: "$input.params(${PK})"}},ReturnValues: 'ALL_OLD'}`
+      }
+    );
+
+    this.table = dynamoTable;
 
     const pipeRole = new Role(this, 'PipeRole', {
       assumedBy: new ServicePrincipal('pipes.amazonaws.com')
