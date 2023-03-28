@@ -16,6 +16,7 @@ import { CfnPipe } from 'aws-cdk-lib/aws-pipes';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 import { Construct } from 'constructs';
+import { ApiGatewayToDynamo } from './ApiGatewayToDynamo';
 import { StateMachineConstruct } from './StateMachineConstruct';
 
 export interface EloServerlessProps {}
@@ -24,7 +25,11 @@ const PK = 'PK';
 
 export class EloServerless extends Construct {
   public table: Table;
-  constructor(scope: Construct, id: string) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props?: { deployRestApi?: boolean }
+  ) {
     super(scope, id);
 
     const dlq = new Queue(this, 'DLQ', {
@@ -38,6 +43,12 @@ export class EloServerless extends Construct {
       // to be removed at later stage
       removalPolicy: RemovalPolicy.DESTROY
     });
+
+    if (props?.deployRestApi === true) {
+      new ApiGatewayToDynamo(this, 'ApiGatewayToDynamo', {
+        table: this.table
+      });
+    }
 
     const pipeRole = new Role(this, 'PipeRole', {
       assumedBy: new ServicePrincipal('pipes.amazonaws.com')
