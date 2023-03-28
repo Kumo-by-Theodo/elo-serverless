@@ -23,13 +23,16 @@ export interface EloServerlessProps {}
 
 const PK = 'PK';
 
+export interface EloServerlessProps {
+  /**
+   * Whether or not to create a rest API with `/player` and `/game` resources and CORS enabled
+   */
+  readonly deployRestApi?: boolean;
+}
+
 export class EloServerless extends Construct {
   public table: Table;
-  constructor(
-    scope: Construct,
-    id: string,
-    props?: { deployRestApi?: boolean }
-  ) {
+  constructor(scope: Construct, id: string, props?: EloServerlessProps) {
     super(scope, id);
 
     const dlq = new Queue(this, 'DLQ', {
