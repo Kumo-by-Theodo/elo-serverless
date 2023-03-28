@@ -5,7 +5,7 @@ import { EloServerless } from '../lib';
 class EloStack extends Stack {
   constructor(scope: Construct, id: string) {
     super(scope, id);
-    new EloServerless(this, 'EloServerless');
+    new EloServerless(this, 'EloServerless', { deployRestApi: true });
   }
 }
 

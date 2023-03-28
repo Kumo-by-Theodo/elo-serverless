@@ -5,7 +5,8 @@ import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import {
   AwsIntegration,
   RestApi,
-  PassthroughBehavior
+  PassthroughBehavior,
+  Cors
 } from 'aws-cdk-lib/aws-apigateway';
 
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
@@ -15,7 +16,12 @@ export class ApiGatewayToDynamo extends Construct {
     super(scope, id);
 
     // RestApi
-    const restApi = new RestApi(this, 'ApiDynamoRestApi');
+    const restApi = new RestApi(this, 'ApiDynamoRestApi', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowMethods: Cors.ALL_METHODS
+      }
+    });
     const playerResource = restApi.root.addResource('player');
     const gameResource = restApi.root.addResource('game');
 
@@ -24,6 +30,21 @@ export class ApiGatewayToDynamo extends Construct {
       assumedBy: new ServicePrincipal('apigateway.amazonaws.com')
     });
     props.table.grantReadWriteData(integrationRole);
+
+    const integrationResponseParameters = {
+      'method.response.header.Access-Control-Allow-Headers':
+        "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+      'method.response.header.Access-Control-Allow-Origin': "'*'",
+      'method.response.header.Access-Control-Allow-Credentials': "'false'",
+      'method.response.header.Access-Control-Allow-Methods':
+        "'OPTIONS,GET,PUT,POST,DELETE'"
+    };
+    const methodResponseParameters = {
+      'method.response.header.Access-Control-Allow-Headers': true,
+      'method.response.header.Access-Control-Allow-Methods': true,
+      'method.response.header.Access-Control-Allow-Credentials': true,
+      'method.response.header.Access-Control-Allow-Origin': true
+    };
 
     // POST Players to Dynamodb
     const putPlayerIntegration = new AwsIntegration({
@@ -44,15 +65,18 @@ export class ApiGatewayToDynamo extends Construct {
         integrationResponses: [
           {
             statusCode: '200',
-            responseTemplates: {
-              'application/json': JSON.stringify({})
-            }
+            responseParameters: integrationResponseParameters
           }
         ]
       }
     });
     playerResource.addMethod('POST', putPlayerIntegration, {
-      methodResponses: [{ statusCode: '200' }]
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: methodResponseParameters
+        }
+      ]
     });
 
     // POST Game to DynamoDb
@@ -80,15 +104,19 @@ export class ApiGatewayToDynamo extends Construct {
         integrationResponses: [
           {
             statusCode: '200',
-            responseTemplates: {
-              'application/json': JSON.stringify({})
-            }
+            responseParameters: integrationResponseParameters
           }
         ]
       }
     });
+
     gameResource.addMethod('POST', putGameIntegration, {
-      methodResponses: [{ statusCode: '200' }]
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: methodResponseParameters
+        }
+      ]
     });
   }
 }
